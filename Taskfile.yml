@@ -106,9 +106,14 @@ tasks:
         echo "Running Snowflake integration tests..."
         echo "  Using: $SNOWFLAKE_ACCOUNT (user: $SNOWFLAKE_USER)"
         echo ""
-      - uv sync --extra dev --quiet
-      - uv run pytest test_app.py -v -s
-      - |
+        if command -v uv &> /dev/null; then
+          echo "Using uv..."
+          uv sync --extra dev --quiet
+          uv run pytest test_app.py -v -s
+        else
+          echo "Using pip/pytest..."
+          pytest test_app.py -v -s
+        fi
         echo ""
         echo "Tests passed. Snowpark pandas connector works."
         echo "If Lambda fails, WIDF is not configured. Run: task snow:lambda-wid"
@@ -222,9 +227,6 @@ tasks:
     silent: true
     deps: [aws:check-sam]
     cmds:
-      - |
-        echo "Generating requirements.txt from pyproject.toml..."
-        uv pip compile pyproject.toml -o requirements.txt --quiet
       - |
         echo "Building Lambda container image (arch: ${LAMBDA_ARCH:-arm64})..."
         sam build \

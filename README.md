@@ -48,7 +48,21 @@ sequenceDiagram
 | [AWS SAM CLI](https://aws.amazon.com/serverless/sam/) | Lambda deployment | [Install](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) |
 | [Snowflake CLI](https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index) | SQL scripts | [Install](https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/installation/installation) |
 | [Task](https://taskfile.dev/) | Task runner | [Install](https://taskfile.dev/installation/) |
-| [uv](https://docs.astral.sh/uv/) | Python packages | [Install](https://docs.astral.sh/uv/getting-started/installation/) |
+
+**Python environment** (choose one):
+
+| Option | Tool | Installation |
+|--------|------|--------------|
+| A | [uv](https://docs.astral.sh/uv/) (recommended) | [Install](https://docs.astral.sh/uv/getting-started/installation/) |
+| B | Python venv | Built-in with Python 3.11+ |
+
+Using venv instead of uv:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
 
 > [!TIP]
 > Run `task` to see all available commands.
