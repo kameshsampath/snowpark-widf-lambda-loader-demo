@@ -1,11 +1,8 @@
 """
 Snowpark WIDF Lambda Loader
-===========================
-AWS Lambda function that loads data from S3 to Snowflake using
-Workload Identity Federation (WIDF) for secure, KEYLESS authentication.
 
-🔑 The Key Point: NO secrets, NO passwords, NO key pairs!
-   Just IAM role trust between AWS and Snowflake.
+AWS Lambda function that loads data from S3 to Snowflake using
+Workload Identity Federation (WIDF) for keyless authentication.
 
 Reference: https://docs.snowflake.com/en/user-guide/workload-identity-federation
 """
@@ -46,7 +43,6 @@ class LambdaResponse(TypedDict):
     body: str
 
 
-# Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -55,15 +51,13 @@ def get_snowpark_session() -> Session:
     """
     Create a Snowpark session using Workload Identity Federation.
 
-    🔑 THE MAGIC: The 'WORKLOAD_IDENTITY' authenticator tells Snowpark
-    to use the Lambda's IAM role for authentication with Snowflake.
-
-    No passwords. No secrets. No key pairs. Just IAM trust!
+    The WORKLOAD_IDENTITY authenticator uses Lambda's IAM role
+    for authentication with Snowflake.
     """
     connection_params: dict[str, str | int] = {
         "account": os.environ["SNOWFLAKE_ACCOUNT"],
-        "authenticator": "WORKLOAD_IDENTITY",  # 🔑 WIDF - Keyless auth!
-        "workload_identity_provider": "AWS",  # 🔑 Using AWS IAM for identity
+        "authenticator": "WORKLOAD_IDENTITY",
+        "workload_identity_provider": "AWS",
         "user": os.environ.get("SNOWFLAKE_USER", "LAMBDA_LOADER_BOT"),
         "database": os.environ.get("SNOWFLAKE_DATABASE", "WIDF_DEMO_DB"),
         "schema": os.environ.get("SNOWFLAKE_SCHEMA", "PUBLIC"),
@@ -71,9 +65,9 @@ def get_snowpark_session() -> Session:
         "role": os.environ.get("SNOWFLAKE_ROLE", "WIDF_DEMO_ROLE"),
     }
 
-    logger.info("🔑 Connecting to Snowflake using WORKLOAD_IDENTITY (keyless!)")
-    logger.info(f"   Account: {connection_params['account']}")
-    logger.info(f"   User: {connection_params['user']}")
+    logger.info("Connecting to Snowflake using WORKLOAD_IDENTITY")
+    logger.info(f"  Account: {connection_params['account']}")
+    logger.info(f"  User: {connection_params['user']}")
 
     return Session.builder.configs(connection_params).create()
 
@@ -92,7 +86,7 @@ def parse_s3_event(event: dict[str, Any]) -> list[S3ObjectInfo]:
 
         if bucket and key:
             records.append(S3ObjectInfo(bucket=bucket, key=key))
-            logger.info(f"📦 Found S3 object: s3://{bucket}/{key}")
+            logger.info(f"Found S3 object: s3://{bucket}/{key}")
 
     return records
 
@@ -101,7 +95,7 @@ def read_json_from_s3(bucket: str, key: str) -> list[dict[str, Any]]:
     """Read JSON file from S3 and return as list of records."""
     s3_client = boto3.client("s3")
 
-    logger.info(f"📖 Reading: s3://{bucket}/{key}")
+    logger.info(f"Reading: s3://{bucket}/{key}")
     response = s3_client.get_object(Bucket=bucket, Key=key)
     content: str = response["Body"].read().decode("utf-8")
 
@@ -121,7 +115,7 @@ def load_to_snowflake(
     """
     Load records into Snowflake RAW_DATA table using bulk insert.
 
-    Uses write_pandas() for efficient bulk loading as recommended in:
+    Uses write_pandas() for efficient bulk loading as per:
     https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-pandas
     """
     # Ensure table exists
@@ -144,7 +138,6 @@ def load_to_snowflake(
     )
 
     # Use write_pandas for efficient bulk loading
-    # This is much faster than row-by-row inserts
     session.write_pandas(
         df,
         table_name="RAW_DATA_STAGING",
@@ -162,7 +155,7 @@ def load_to_snowflake(
     # Clean up staging table
     session.sql("DROP TABLE IF EXISTS RAW_DATA_STAGING").collect()
 
-    logger.info(f"✅ Loaded {len(records)} records from {source_file}")
+    logger.info(f"Loaded {len(records)} records from {source_file}")
     return len(records)
 
 
@@ -170,17 +163,16 @@ def lambda_handler(event: dict[str, Any], context: Any) -> LambdaResponse:
     """
     AWS Lambda handler for S3 event-triggered data loading.
 
-    This demonstrates Snowflake WIDF (Workload Identity Federation):
+    Demonstrates Snowflake WIDF:
     - Lambda assumes an IAM role
     - Snowflake trusts that IAM role
-    - No secrets stored anywhere!
+    - No secrets stored anywhere
     """
     logger.info("=" * 60)
-    logger.info("🚀 Snowpark WIDF Lambda Loader")
-    logger.info("   Keyless ETL: S3 → Snowflake")
+    logger.info("Snowpark WIDF Lambda Loader")
+    logger.info("Keyless ETL: S3 -> Snowflake")
     logger.info("=" * 60)
 
-    # Parse S3 event
     s3_objects: list[S3ObjectInfo] = parse_s3_event(event)
 
     if not s3_objects:
@@ -194,14 +186,12 @@ def lambda_handler(event: dict[str, Any], context: Any) -> LambdaResponse:
     results: list[FileResult] = []
 
     try:
-        # 🔑 Connect using WIDF - no secrets!
         session = get_snowpark_session()
 
         # Verify connection
         current_user: str = str(session.sql("SELECT CURRENT_USER()").collect()[0][0])
         current_role: str = str(session.sql("SELECT CURRENT_ROLE()").collect()[0][0])
-        logger.info(f"✅ Connected as: {current_user} (role: {current_role})")
-        logger.info("🔑 Authentication: WORKLOAD_IDENTITY (keyless!)")
+        logger.info(f"Connected as: {current_user} (role: {current_role})")
 
         # Process each file
         for s3_obj in s3_objects:
@@ -216,7 +206,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> LambdaResponse:
                     FileResult(file=s3_obj["key"], records=count, status="success")
                 )
             except Exception as e:
-                logger.error(f"❌ Failed: {s3_obj['key']} - {e}")
+                logger.error(f"Failed: {s3_obj['key']} - {e}")
                 results.append(
                     FileResult(file=s3_obj["key"], error=str(e), status="failed")
                 )
@@ -225,7 +215,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> LambdaResponse:
             statusCode=200,
             body=json.dumps(
                 {
-                    "message": "Data loaded via WIDF (keyless!)",
+                    "message": "Data loaded via WIDF",
                     "authenticated_as": current_user,
                     "total_records": total_records,
                     "files": results,
@@ -234,7 +224,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> LambdaResponse:
         )
 
     except Exception as e:
-        logger.error(f"❌ Lambda failed: {e}")
+        logger.error(f"Lambda failed: {e}")
         return LambdaResponse(statusCode=500, body=json.dumps({"error": str(e)}))
 
     finally:
@@ -245,29 +235,21 @@ def lambda_handler(event: dict[str, Any], context: Any) -> LambdaResponse:
 def main() -> None:
     """Local testing."""
     print("""
-╔══════════════════════════════════════════════════════════════════╗
-║           Snowpark WIDF Lambda Loader                            ║
-║           Keyless ETL: AWS Lambda → Snowflake                    ║
-╠══════════════════════════════════════════════════════════════════╣
-║                                                                  ║
-║  🔑 THE KEY POINT:                                               ║
-║                                                                  ║
-║  This Lambda authenticates to Snowflake using                    ║
-║  WORKLOAD IDENTITY FEDERATION (WIDF)                             ║
-║                                                                  ║
-║  • NO passwords                                                  ║
-║  • NO secret keys                                                ║
-║  • NO key pairs                                                  ║
-║  • NO Secrets Manager                                            ║
-║                                                                  ║
-║  Just IAM role trust between AWS and Snowflake!                  ║
-║                                                                  ║
-╠══════════════════════════════════════════════════════════════════╣
-║  Connection Config:                                              ║
-║                                                                  ║
-║    authenticator = "WORKLOAD_IDENTITY"  ← The magic!             ║
-║                                                                  ║
-╚══════════════════════════════════════════════════════════════════╝
+Snowpark WIDF Lambda Loader
+===========================
+
+This Lambda authenticates to Snowflake using
+WORKLOAD IDENTITY FEDERATION (WIDF)
+
+  - No passwords
+  - No secret keys
+  - No key pairs
+  - No Secrets Manager
+
+Just IAM role trust between AWS and Snowflake.
+
+Connection Config:
+  authenticator = "WORKLOAD_IDENTITY"
     """)
 
 

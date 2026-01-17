@@ -10,29 +10,28 @@ tasks:
   # Default Task - Show Configuration
   # ===========================================================================
   default:
-    desc: Show configuration for the Keyless ETL demo
+    desc: Show configuration
     silent: true
     cmds:
       - |
-        echo "╔══════════════════════════════════════════════════════════╗"
-        echo "║     🔑 Snowpark WIDF Lambda - Keyless ETL Demo          ║"
-        echo "╠══════════════════════════════════════════════════════════╣"
-        echo "║ AWS Configuration                                        ║"
-        echo "╠══════════════════════════════════════════════════════════╣"
-        echo "║ AWS_REGION:             $AWS_REGION"
-        echo "║ AWS_ACCOUNT_ID:         $AWS_ACCOUNT_ID"
-        echo "║ STACK_NAME:             $STACK_NAME"
-        echo "║ S3_BUCKET:              $S3_BUCKET"
-        echo "║ LAMBDA_ROLE_NAME:       $LAMBDA_ROLE_NAME"
-        echo "╠══════════════════════════════════════════════════════════╣"
-        echo "║ Snowflake Configuration                                  ║"
-        echo "╠══════════════════════════════════════════════════════════╣"
-        echo "║ SNOWFLAKE_ACCOUNT:      $SNOWFLAKE_ACCOUNT"
-        echo "║ DEMO_DATABASE:          $DEMO_DATABASE"
-        echo "║ DEMO_SCHEMA:            $DEMO_SCHEMA"
-        echo "║ SA_ROLE:                $SA_ROLE"
-        echo "║ LAMBDA_WID_USER:        $LAMBDA_WID_USER"
-        echo "╚══════════════════════════════════════════════════════════╝"
+        echo "Snowpark WIDF Lambda - Keyless ETL Demo"
+        echo "======================================="
+        echo ""
+        echo "AWS Configuration"
+        echo "-----------------"
+        echo "  AWS_REGION:         $AWS_REGION"
+        echo "  AWS_ACCOUNT_ID:     $AWS_ACCOUNT_ID"
+        echo "  STACK_NAME:         $STACK_NAME"
+        echo "  S3_BUCKET:          $S3_BUCKET"
+        echo "  LAMBDA_ROLE_NAME:   $LAMBDA_ROLE_NAME"
+        echo ""
+        echo "Snowflake Configuration"
+        echo "-----------------------"
+        echo "  SNOWFLAKE_ACCOUNT:  $SNOWFLAKE_ACCOUNT"
+        echo "  DEMO_DATABASE:      $DEMO_DATABASE"
+        echo "  DEMO_SCHEMA:        $DEMO_SCHEMA"
+        echo "  SA_ROLE:            $SA_ROLE"
+        echo "  LAMBDA_WID_USER:    $LAMBDA_WID_USER"
 
   # ===========================================================================
   # Snowflake Setup
@@ -48,16 +47,15 @@ tasks:
           -D "db_name=$DEMO_DATABASE" \
           -D "schema_name=$DEMO_SCHEMA" \
           -D "warehouse=$SNOWFLAKE_WAREHOUSE"
-      - echo "✅ Snowflake setup completed"
+      - echo "Snowflake setup completed"
 
   snow:lambda-wid:
-    desc: "🔑 Configure WIDF - Create Snowflake service user for Lambda"
+    desc: Create Snowflake WIDF service user for Lambda
     cmds:
       - |
-        # Compute the IAM Role ARN
         AWS_ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${LAMBDA_ROLE_NAME}"
-        echo "🔑 Creating WIDF service user: $LAMBDA_WID_USER"
-        echo "   Trusting IAM Role: $AWS_ROLE_ARN"
+        echo "Creating WIDF service user: $LAMBDA_WID_USER"
+        echo "  Trusting IAM Role: $AWS_ROLE_ARN"
         echo ""
         snow sql \
           --enable-templating=ALL \
@@ -68,10 +66,10 @@ tasks:
           -D "snowflake_warehouse=$SNOWFLAKE_WAREHOUSE" \
           -D "demo_database=$DEMO_DATABASE" \
           -D "demo_schema=$DEMO_SCHEMA"
-      - echo "✅ WIDF service user created - Lambda can now authenticate keylessly!"
+      - echo "WIDF service user created"
 
   snow:query:
-    desc: "📊 Query RAW_DATA table to verify loaded data"
+    desc: Query RAW_DATA table
     cmds:
       - |
         snow sql \
@@ -79,40 +77,41 @@ tasks:
           -q "SELECT * FROM $DEMO_DATABASE.$DEMO_SCHEMA.RAW_DATA ORDER BY loaded_at DESC LIMIT 20;"
 
   snow:cleanup:
-    desc: "🧹 Remove all Snowflake demo resources (user, role, database)"
+    desc: Remove all Snowflake demo resources
     cmds:
       - |
-        echo "🧹 Cleaning up Snowflake WIDF demo resources..."
-        echo "   User: $LAMBDA_WID_USER"
-        echo "   Role: $SA_ROLE"
-        echo "   Database: $DEMO_DATABASE"
+        echo "Cleaning up Snowflake resources..."
+        echo "  User: $LAMBDA_WID_USER"
+        echo "  Role: $SA_ROLE"
+        echo "  Database: $DEMO_DATABASE"
         echo ""
         snow sql \
           --enable-templating=ALL \
           -f scripts/cleanup.sql \
           -D "snowflake_user=$LAMBDA_WID_USER" \
           -D "snowflake_role=$SA_ROLE" \
+          -D "sa_role=$SA_ROLE" \
           -D "demo_database=$DEMO_DATABASE" \
           -D "snowflake_warehouse=$SNOWFLAKE_WAREHOUSE"
-      - echo "🧹 Snowflake cleanup complete!"
+      - echo "Snowflake cleanup complete"
 
   # ===========================================================================
-  # Local Testing (Real Snowflake Connection)
+  # Local Testing
   # ===========================================================================
   test:
-    desc: "🧪 Test Snowpark pandas connector with real Snowflake (uses password auth)"
+    desc: Run Snowflake integration tests (uses password auth)
     silent: true
     cmds:
       - |
-        echo "🧪 Running Snowflake integration tests..."
-        echo "   Using: $SNOWFLAKE_ACCOUNT (user: $SNOWFLAKE_USER)"
+        echo "Running Snowflake integration tests..."
+        echo "  Using: $SNOWFLAKE_ACCOUNT (user: $SNOWFLAKE_USER)"
         echo ""
       - uv sync --extra dev --quiet
       - uv run pytest test_app.py -v -s
       - |
         echo ""
-        echo "✅ Tests passed! Snowpark pandas connector works."
-        echo "   If Lambda fails → WIDF not configured → Run: task snow:lambda-wid"
+        echo "Tests passed. Snowpark pandas connector works."
+        echo "If Lambda fails, WIDF is not configured. Run: task snow:lambda-wid"
 
   # ===========================================================================
   # AWS Deployment
@@ -123,67 +122,66 @@ tasks:
     cmds:
       - |
         if command -v sam &> /dev/null; then
-          echo "✅ AWS SAM CLI installed: $(sam --version)"
+          echo "AWS SAM CLI installed: $(sam --version)"
         else
-          echo "❌ AWS SAM CLI not found!"
+          echo "AWS SAM CLI not found"
           echo ""
-          echo "Please install AWS SAM CLI before proceeding:"
+          echo "Install from:"
           echo "  https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"
           echo ""
           exit 1
         fi
 
   aws:ecr-login:
-    desc: "🔐 Login to ECR (required before building/pushing images)"
+    desc: Login to ECR
     silent: true
     cmds:
       - |
         ECR_REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
-        echo "🔐 Logging into ECR: $ECR_REGISTRY"
+        echo "Logging into ECR: $ECR_REGISTRY"
         aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
-        echo "✅ ECR login successful"
+        echo "ECR login successful"
 
   aws:setup-ecr:
-    desc: "🐳 Create ECR repository if it doesn't exist"
+    desc: Create ECR repository if needed
     silent: true
     deps: [aws:ecr-login]
     cmds:
       - |
-        # Extract repo name from ECR URL (last part after /)
         ECR_REPO_NAME="${ECR_REPO_URL##*/}"
-        echo "🐳 Checking ECR repository: $ECR_REPO_NAME"
+        echo "Checking ECR repository: $ECR_REPO_NAME"
         if aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region "$AWS_REGION" 2>/dev/null; then
-          echo "✅ ECR repo exists: $ECR_REPO_NAME"
+          echo "ECR repo exists: $ECR_REPO_NAME"
         else
-          echo "📦 Creating ECR repository: $ECR_REPO_NAME"
+          echo "Creating ECR repository: $ECR_REPO_NAME"
           aws ecr create-repository \
             --repository-name "$ECR_REPO_NAME" \
             --region "$AWS_REGION" \
             --image-scanning-configuration scanOnPush=true \
             --encryption-configuration encryptionType=AES256
-          echo "✅ ECR repo created: $ECR_REPO_NAME"
+          echo "ECR repo created: $ECR_REPO_NAME"
         fi
 
   aws:setup-sam-bucket:
-    desc: "🪣 Create SAM artifact bucket if it doesn't exist"
+    desc: Create SAM artifact bucket if needed
     silent: true
     cmds:
       - |
-        echo "🪣 Checking SAM artifact bucket: $SAM_S3_BUCKET"
+        echo "Checking SAM artifact bucket: $SAM_S3_BUCKET"
         if aws s3api head-bucket --bucket "$SAM_S3_BUCKET" 2>/dev/null; then
-          echo "✅ Bucket exists: $SAM_S3_BUCKET"
+          echo "Bucket exists: $SAM_S3_BUCKET"
         else
-          echo "📦 Creating bucket: $SAM_S3_BUCKET"
+          echo "Creating bucket: $SAM_S3_BUCKET"
           aws s3 mb "s3://$SAM_S3_BUCKET" --region "$AWS_REGION"
-          echo "✅ Bucket created: $SAM_S3_BUCKET"
+          echo "Bucket created: $SAM_S3_BUCKET"
         fi
       - |
         echo ""
-        echo "🔐 Validating write access..."
+        echo "Validating write access..."
         TEST_KEY="sam-test-$(date +%s).txt"
         echo "test" | aws s3 cp - "s3://$SAM_S3_BUCKET/$TEST_KEY" --region "$AWS_REGION"
         aws s3 rm "s3://$SAM_S3_BUCKET/$TEST_KEY" --region "$AWS_REGION"
-        echo "✅ Write access confirmed for: $SAM_S3_BUCKET"
+        echo "Write access confirmed: $SAM_S3_BUCKET"
 
   aws:validate:
     desc: Validate the SAM template
@@ -192,7 +190,7 @@ tasks:
     deps: [aws:check-sam]
     cmds:
       - sam validate --template template.yaml
-      - echo "✅ SAM template is valid"
+      - echo "SAM template is valid"
 
   aws:build:
     desc: Build the SAM application (container image)
@@ -200,16 +198,15 @@ tasks:
     deps: [aws:check-sam]
     cmds:
       - |
-        echo "📦 Generating requirements.txt from pyproject.toml..."
+        echo "Generating requirements.txt from pyproject.toml..."
         uv pip compile pyproject.toml -o requirements.txt --quiet
       - |
-        echo "🐳 Building Lambda container image (arch: ${LAMBDA_ARCH:-arm64})..."
-        echo "   This may take a few minutes for initial build..."
+        echo "Building Lambda container image (arch: ${LAMBDA_ARCH:-arm64})..."
         sam build \
           --template aws/template.yaml \
           --build-dir .aws-sam/build \
           --use-container
-      - echo "✅ SAM container build completed"
+      - echo "SAM container build completed"
 
   aws:deploy:
     desc: Deploy Lambda and S3 bucket to AWS
@@ -217,10 +214,10 @@ tasks:
     deps: [aws:setup-ecr, aws:setup-sam-bucket, aws:build]
     cmds:
       - |
-        echo "🚀 Deploying stack: $STACK_NAME"
-        echo "   Region: $AWS_REGION"
-        echo "   Artifact bucket: $SAM_S3_BUCKET"
-        echo "   ECR repository: $ECR_REPO_URL"
+        echo "Deploying stack: $STACK_NAME"
+        echo "  Region: $AWS_REGION"
+        echo "  Artifact bucket: $SAM_S3_BUCKET"
+        echo "  ECR repository: $ECR_REPO_URL"
         echo ""
         sam deploy \
           --template-file .aws-sam/build/template.yaml \
@@ -246,11 +243,9 @@ tasks:
           --no-fail-on-empty-changeset
       - |
         echo ""
-        echo "╔══════════════════════════════════════════════════════════╗"
-        echo "║              ✅ AWS Deployment Complete!                 ║"
-        echo "╠══════════════════════════════════════════════════════════╣"
-        echo "║ Next: Run 'task snow:lambda-wid' to create WIDF user    ║"
-        echo "╚══════════════════════════════════════════════════════════╝"
+        echo "AWS Deployment Complete"
+        echo ""
+        echo "Next: Run 'task snow:lambda-wid' to create WIDF user"
 
   aws:outputs:
     desc: Show CloudFormation stack outputs
@@ -264,11 +259,11 @@ tasks:
           --region $AWS_REGION
 
   aws:debug:
-    desc: "🔍 Debug - Show CloudFormation stack errors"
+    desc: Show CloudFormation stack errors
     silent: true
     cmds:
       - |
-        echo "🔍 Checking stack: $STACK_NAME"
+        echo "Checking stack: $STACK_NAME"
         echo ""
         aws cloudformation describe-stack-events \
           --stack-name "$STACK_NAME" \
@@ -276,7 +271,7 @@ tasks:
           --output table \
           --region "$AWS_REGION" 2>/dev/null || echo "Stack not found: $STACK_NAME"
         echo ""
-        echo "🔍 Checking SAM managed stack..."
+        echo "Checking SAM managed stack..."
         aws cloudformation describe-stack-events \
           --stack-name "aws-sam-cli-managed-default" \
           --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' \
@@ -284,7 +279,7 @@ tasks:
           --region "$AWS_REGION" 2>/dev/null || echo "SAM managed stack not found"
 
   aws:role-arn:
-    desc: "🔑 Get Lambda Role ARN for Snowflake WIDF setup"
+    desc: Get Lambda Role ARN for Snowflake WIDF setup
     silent: true
     cmds:
       - |
@@ -294,11 +289,11 @@ tasks:
           --output text \
           --region $AWS_REGION)
         echo ""
-        echo "🔑 Lambda Role ARN:"
-        echo "   $ROLE_ARN"
+        echo "Lambda Role ARN:"
+        echo "  $ROLE_ARN"
         echo ""
         echo "Use in Snowflake:"
-        echo "   WORKLOAD_IDENTITY = (TYPE = AWS_IAM AWS_ROLE_ARN = '$ROLE_ARN')"
+        echo "  WORKLOAD_IDENTITY = (TYPE = AWS ARN = '$ROLE_ARN')"
 
   # ===========================================================================
   # Testing
@@ -310,7 +305,7 @@ tasks:
       - |
         aws s3 cp data/sample-data.json s3://$S3_BUCKET/incoming/data-$(date +%s).json
         echo ""
-        echo "✅ Test file uploaded to s3://$S3_BUCKET/incoming/"
+        echo "Test file uploaded to s3://$S3_BUCKET/incoming/"
         echo ""
         echo "View logs:  task aws:logs"
         echo "Query data: SELECT * FROM $DEMO_DATABASE.$DEMO_SCHEMA.RAW_DATA;"
@@ -337,11 +332,11 @@ tasks:
   # Cleanup
   # ===========================================================================
   aws:clean-stack:
-    desc: "🧹 Delete failed app stack for clean redeploy"
+    desc: Delete failed stack for clean redeploy
     silent: true
     cmds:
       - |
-        echo "🧹 Cleaning up failed stack: $STACK_NAME"
+        echo "Cleaning up failed stack: $STACK_NAME"
         echo ""
         STACK_STATUS=$(aws cloudformation describe-stacks \
           --stack-name "$STACK_NAME" \
@@ -350,42 +345,42 @@ tasks:
           --region "$AWS_REGION" 2>/dev/null || echo "NOT_FOUND")
 
         if [ "$STACK_STATUS" = "NOT_FOUND" ]; then
-          echo "✅ Stack doesn't exist - ready for fresh deploy"
+          echo "Stack doesn't exist - ready for fresh deploy"
           exit 0
         fi
 
-        echo "   Current status: $STACK_STATUS"
+        echo "  Current status: $STACK_STATUS"
 
         if [[ "$STACK_STATUS" == *"IN_PROGRESS"* ]]; then
-          echo "⏳ Stack operation in progress, waiting..."
+          echo "Stack operation in progress, waiting..."
           aws cloudformation wait stack-delete-complete \
             --stack-name "$STACK_NAME" \
             --region "$AWS_REGION" 2>/dev/null || true
         fi
 
-        echo "🗑️  Deleting stack..."
+        echo "Deleting stack..."
         aws cloudformation delete-stack \
           --stack-name "$STACK_NAME" \
           --region "$AWS_REGION"
 
-        echo "⏳ Waiting for deletion..."
+        echo "Waiting for deletion..."
         aws cloudformation wait stack-delete-complete \
           --stack-name "$STACK_NAME" \
           --region "$AWS_REGION"
 
         echo ""
-        echo "✅ Stack deleted - ready for fresh deploy"
-        echo "   Run: task aws:deploy"
+        echo "Stack deleted - ready for fresh deploy"
+        echo "Run: task aws:deploy"
 
   aws:clean:
     desc: Delete AWS CloudFormation stack and resources
     silent: true
     cmds:
       - |
-        echo "⚠️  Deleting: $STACK_NAME"
-        echo "   - Lambda: $LAMBDA_FUNCTION_NAME"
-        echo "   - IAM Role: $LAMBDA_ROLE_NAME"
-        echo "   - S3 Bucket: $S3_BUCKET"
+        echo "Deleting: $STACK_NAME"
+        echo "  Lambda: $LAMBDA_FUNCTION_NAME"
+        echo "  IAM Role: $LAMBDA_ROLE_NAME"
+        echo "  S3 Bucket: $S3_BUCKET"
       - |
         echo "Emptying S3 bucket..."
         aws s3 rm s3://$S3_BUCKET --recursive --region $AWS_REGION 2>/dev/null || true
@@ -393,14 +388,14 @@ tasks:
         echo "Deleting stack..."
         aws cloudformation delete-stack --stack-name $STACK_NAME --region $AWS_REGION
         aws cloudformation wait stack-delete-complete --stack-name $STACK_NAME --region $AWS_REGION
-      - echo "✅ AWS resources cleaned up"
+      - echo "AWS resources cleaned up"
 
   aws:clean-build:
     desc: Clean local SAM build artifacts
     silent: true
     cmds:
       - rm -rf .aws-sam
-      - echo "✅ Build artifacts cleaned"
+      - echo "Build artifacts cleaned"
 
   clean:all:
     desc: Clean everything (AWS + Snowflake + local)
@@ -414,21 +409,18 @@ tasks:
   # Full Workflow
   # ===========================================================================
   deploy:
-    desc: "🚀 Full deployment: AWS + Snowflake WIDF"
+    desc: Full deployment (AWS + Snowflake WIDF)
     silent: true
     cmds:
       - task: aws:deploy
       - task: snow:lambda-wid
       - |
         echo ""
-        echo "╔══════════════════════════════════════════════════════════════════╗"
-        echo "║              🎉 Keyless ETL Demo Ready!                          ║"
-        echo "╠══════════════════════════════════════════════════════════════════╣"
-        echo "║                                                                  ║"
-        echo "║  Test:  task aws:test                                           ║"
-        echo "║  Logs:  task aws:logs                                           ║"
-        echo "║                                                                  ║"
-        echo "║  🔑 Lambda authenticates to Snowflake via WIDF                  ║"
-        echo "║     NO passwords • NO secrets • NO key pairs                    ║"
-        echo "║                                                                  ║"
-        echo "╚══════════════════════════════════════════════════════════════════╝"
+        echo "Keyless ETL Demo Ready"
+        echo "======================"
+        echo ""
+        echo "  Test:  task aws:test"
+        echo "  Logs:  task aws:logs"
+        echo ""
+        echo "Lambda authenticates to Snowflake via WIDF"
+        echo "No passwords, no secrets, no key pairs"
