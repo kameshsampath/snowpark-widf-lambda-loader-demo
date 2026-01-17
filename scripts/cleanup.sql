@@ -22,18 +22,20 @@ SELECT
 REVOKE USAGE ON WAREHOUSE <%snowflake_warehouse%> FROM ROLE <%snowflake_role%>;
 REVOKE ROLE <%snowflake_role%> FROM USER <%snowflake_user%>;
 
-SET current_user = (SELECT CURRENT_USER());
-REVOKE ROLE <%sa_role%> FROM USER IDENTIFIER($current_user);
-
 -- Drop WIDF Service User
 DROP USER IF EXISTS <%snowflake_user%>;
 SELECT 'Dropped user: <%snowflake_user%>' AS status;
 
+USE ROLE <%sa_role%>;
 -- Drop Demo Database (cascades to schema and tables)
 DROP DATABASE IF EXISTS <%demo_database%>;
 SELECT 'Dropped database: <%demo_database%>' AS status;
 
 -- Drop Demo Role
+USE ROLE ACCOUNTADMIN;
+
+SET current_user = (SELECT CURRENT_USER());
+REVOKE ROLE <%sa_role%> FROM USER IDENTIFIER($current_user);
 DROP ROLE IF EXISTS <%snowflake_role%>;
 SELECT 'Dropped role: <%snowflake_role%>' AS status;
 
