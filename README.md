@@ -34,7 +34,7 @@ Snowflake offers multiple ways to load data from S3. Choose based on your needs:
 
 ### Add Dynamic Tables for Instant Analytics
 
-Lambda + WIDF gets data in. [Dynamic Tables](https://docs.snowflake.com/en/user-guide/dynamic-tables-about) turn it into insights - automatically.
+Lambda + WIDF gets data in. [Dynamic Tables](https://docs.snowflake.com/en/user-guide/dynamic-tables-about) turn it into insights - automatically. Define your transformation query once; Snowflake handles refresh scheduling, dependency tracking, and incremental processing.
 
 ```mermaid
 flowchart LR
@@ -307,6 +307,7 @@ connection_params = {
 | `task aws:role-arn` | Get Lambda Role ARN |
 | `task aws:debug` | Debug CloudFormation errors |
 | `task aws:clean-stack` | Delete failed stack |
+| `task aws:empty-bucket` | Empty S3 bucket |
 | `task aws:clean` | Remove AWS resources |
 
 ### Other
@@ -376,6 +377,8 @@ task clean:all
 ## 📚 References
 
 - [Snowflake Workload Identity Federation](https://docs.snowflake.com/en/user-guide/workload-identity-federation)
+- [Snowflake Dynamic Tables](https://docs.snowflake.com/en/user-guide/dynamic-tables-about) - Declarative data pipelines with automatic refresh
+- [Snowpark Python](https://docs.snowflake.com/en/developer-guide/snowpark/python) - DataFrame API for Python
 - [Snowflake Python Connector - Pandas](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-pandas)
 - [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html)
 - [Snowflake CLI](https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/index)

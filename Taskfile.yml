@@ -407,6 +407,15 @@ tasks:
         echo "Stack deleted - ready for fresh deploy"
         echo "Run: task aws:deploy"
 
+  aws:empty-bucket:
+    desc: Empty S3 bucket (removes all objects)
+    silent: true
+    cmds:
+      - |
+        echo "Emptying S3 bucket: $S3_BUCKET"
+        aws s3 rm s3://$S3_BUCKET --recursive --region $AWS_REGION 2>/dev/null || true
+        echo "S3 bucket emptied"
+
   aws:clean:
     desc: Delete AWS CloudFormation stack and resources
     silent: true
@@ -416,9 +425,7 @@ tasks:
         echo "  Lambda: $LAMBDA_FUNCTION_NAME"
         echo "  IAM Role: $LAMBDA_ROLE_NAME"
         echo "  S3 Bucket: $S3_BUCKET"
-      - |
-        echo "Emptying S3 bucket..."
-        aws s3 rm s3://$S3_BUCKET --recursive --region $AWS_REGION 2>/dev/null || true
+      - task: aws:empty-bucket
       - |
         echo "Deleting stack..."
         aws cloudformation delete-stack --stack-name $STACK_NAME --region $AWS_REGION
