@@ -61,6 +61,10 @@ task default
 ### 3. Check Prerequisites
 
 ```bash
+# Verify AWS CLI connectivity
+task aws:check
+
+# Verify SAM CLI installed
 task aws:check-sam
 ```
 
@@ -218,6 +222,7 @@ connection_params = {
 
 | Command | Description |
 |---------|-------------|
+| `task aws:check` | Verify AWS CLI connectivity |
 | `task aws:check-sam` | Check SAM CLI installed |
 | `task aws:setup-sam-bucket` | Create SAM artifact bucket |
 | `task aws:debug` | Debug CloudFormation errors |

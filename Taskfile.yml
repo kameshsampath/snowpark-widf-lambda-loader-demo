@@ -116,6 +116,31 @@ tasks:
   # ===========================================================================
   # AWS Deployment
   # ===========================================================================
+  aws:check:
+    desc: Verify AWS CLI connectivity
+    silent: true
+    cmds:
+      - |
+        echo "Checking AWS CLI connectivity..."
+        if ! command -v aws &> /dev/null; then
+          echo "AWS CLI not found"
+          echo ""
+          echo "Install from:"
+          echo "  https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+          exit 1
+        fi
+        CALLER=$(aws sts get-caller-identity --output json 2>&1)
+        if [ $? -ne 0 ]; then
+          echo "AWS CLI connectivity failed"
+          echo "$CALLER"
+          exit 1
+        fi
+        ACCOUNT=$(echo "$CALLER" | grep -o '"Account": "[^"]*"' | cut -d'"' -f4)
+        ARN=$(echo "$CALLER" | grep -o '"Arn": "[^"]*"' | cut -d'"' -f4)
+        echo "AWS CLI connected"
+        echo "  Account: $ACCOUNT"
+        echo "  Identity: $ARN"
+
   aws:check-sam:
     desc: Check if AWS SAM CLI is installed
     silent: true
