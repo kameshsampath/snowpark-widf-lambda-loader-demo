@@ -19,6 +19,7 @@ import urllib.parse
 from typing import Any, TypedDict
 
 import boto3
+import pandas as pd
 from snowflake.snowpark import Session
 
 
@@ -62,6 +63,7 @@ def get_snowpark_session() -> Session:
     connection_params: dict[str, str | int] = {
         "account": os.environ["SNOWFLAKE_ACCOUNT"],
         "authenticator": "WORKLOAD_IDENTITY",  # 🔑 WIDF - Keyless auth!
+        "workload_identity_provider": "AWS",  # 🔑 Using AWS IAM for identity
         "user": os.environ.get("SNOWFLAKE_USER", "LAMBDA_LOADER_BOT"),
         "database": os.environ.get("SNOWFLAKE_DATABASE", "WIDF_DEMO_DB"),
         "schema": os.environ.get("SNOWFLAKE_SCHEMA", "PUBLIC"),
@@ -116,8 +118,12 @@ def read_json_from_s3(bucket: str, key: str) -> list[dict[str, Any]]:
 def load_to_snowflake(
     session: Session, records: list[dict[str, Any]], source_file: str
 ) -> int:
-    """Load records into Snowflake RAW_DATA table."""
+    """
+    Load records into Snowflake RAW_DATA table using bulk insert.
 
+    Uses write_pandas() for efficient bulk loading as recommended in:
+    https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-pandas
+    """
     # Ensure table exists
     session.sql("""
         CREATE TABLE IF NOT EXISTS RAW_DATA (
@@ -129,12 +135,32 @@ def load_to_snowflake(
         )
     """).collect()
 
-    # Insert each record
-    for record in records:
-        session.sql(
-            "INSERT INTO RAW_DATA (source_file, payload) SELECT ?, PARSE_JSON(?)",
-            params=[source_file, json.dumps(record)],
-        ).collect()
+    # Prepare data as pandas DataFrame for bulk insert
+    df = pd.DataFrame(
+        {
+            "SOURCE_FILE": [source_file] * len(records),
+            "PAYLOAD": [json.dumps(record) for record in records],
+        }
+    )
+
+    # Use write_pandas for efficient bulk loading
+    # This is much faster than row-by-row inserts
+    session.write_pandas(
+        df,
+        table_name="RAW_DATA_STAGING",
+        auto_create_table=True,
+        overwrite=True,
+    )
+
+    # Insert from staging with PARSE_JSON for VARIANT conversion
+    session.sql("""
+        INSERT INTO RAW_DATA (source_file, payload)
+        SELECT SOURCE_FILE, PARSE_JSON(PAYLOAD)
+        FROM RAW_DATA_STAGING
+    """).collect()
+
+    # Clean up staging table
+    session.sql("DROP TABLE IF EXISTS RAW_DATA_STAGING").collect()
 
     logger.info(f"✅ Loaded {len(records)} records from {source_file}")
     return len(records)

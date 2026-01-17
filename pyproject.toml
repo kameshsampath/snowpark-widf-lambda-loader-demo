@@ -4,9 +4,18 @@ version = "0.1.0"
 description = "AWS Lambda function that loads data from S3 to Snowflake using Workload Identity Federation (WIDF)"
 readme = "README.md"
 requires-python = ">=3.11"
+
 dependencies = [
     "snowflake-snowpark-python[pandas]>=1.44.0",
     "boto3>=1.34.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "python-dotenv>=1.0.0",
+    "ipykernel>=7.1.0",
 ]
 
 [project.scripts]

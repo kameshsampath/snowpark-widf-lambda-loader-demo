@@ -39,6 +39,27 @@ Parameters:
     Type: String
     Description: Snowflake WIDF service user (from .env LAMBDA_WID_USER)
 
+  # AWS Resource Names (from .env)
+  S3BucketName:
+    Type: String
+    Description: S3 bucket name for incoming data (from .env S3_BUCKET)
+
+  LambdaRoleName:
+    Type: String
+    Description: IAM role name for Lambda (from .env LAMBDA_ROLE_NAME)
+
+  LambdaFunctionName:
+    Type: String
+    Description: Lambda function name (from .env LAMBDA_FUNCTION_NAME)
+
+  LambdaArchitecture:
+    Type: String
+    Default: arm64
+    AllowedValues: [arm64, x86_64]
+    Description: |
+      Lambda architecture (from .env LAMBDA_ARCH)
+      Must match TARGET_ARCH in Dockerfile for consistent builds!
+
 # =============================================================================
 # Globals
 # =============================================================================
@@ -46,9 +67,7 @@ Globals:
   Function:
     Timeout: 120
     MemorySize: 512
-    Runtime: python3.11
-    Architectures:
-      - x86_64
+    # Note: Runtime and Architectures are defined in Dockerfile for container images
 
 # =============================================================================
 # Resources
@@ -60,12 +79,21 @@ Resources:
   IncomingDataBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "snowpark-widf-loader-${Environment}-${AWS::AccountId}"
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+      BucketName: !Ref S3BucketName
+      # -------------------------------------------------------------------------
+      # Public Access Block (uncomment if your account allows it)
+      # -------------------------------------------------------------------------
+      # Some AWS accounts have Service Control Policies (SCPs) that deny
+      # s3:PutBucketPublicAccessBlock. If you get this error during deployment,
+      # leave this commented out - your account-level defaults will apply.
+      #
+      # If you have permissions, uncomment to explicitly block public access:
+      # -------------------------------------------------------------------------
+      # PublicAccessBlockConfiguration:
+      #   BlockPublicAcls: true
+      #   BlockPublicPolicy: true
+      #   IgnorePublicAcls: true
+      #   RestrictPublicBuckets: true
       NotificationConfiguration:
         LambdaConfigurations:
           - Event: s3:ObjectCreated:*
@@ -91,7 +119,7 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: s3.amazonaws.com
       SourceAccount: !Ref AWS::AccountId
-      SourceArn: !Sub "arn:aws:s3:::snowpark-widf-loader-${Environment}-${AWS::AccountId}"
+      SourceArn: !Sub "arn:aws:s3:::${S3BucketName}"
 
   # ---------------------------------------------------------------------------
   # IAM Role for Lambda (THIS IS THE WIDF IDENTITY!)
@@ -99,7 +127,7 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "snowpark-widf-lambda-role-${Environment}"
+      RoleName: !Ref LambdaRoleName
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -128,8 +156,8 @@ Resources:
                   - s3:GetObjectVersion
                   - s3:ListBucket
                 Resource:
-                  - !Sub "arn:aws:s3:::snowpark-widf-loader-${Environment}-${AWS::AccountId}"
-                  - !Sub "arn:aws:s3:::snowpark-widf-loader-${Environment}-${AWS::AccountId}/*"
+                  - !Sub "arn:aws:s3:::${S3BucketName}"
+                  - !Sub "arn:aws:s3:::${S3BucketName}/*"
         - PolicyName: STSPolicy
           PolicyDocument:
             Version: "2012-10-17"
@@ -143,16 +171,17 @@ Resources:
           Value: snowpark-widf-demo
 
   # ---------------------------------------------------------------------------
-  # Lambda Function - Keyless ETL!
+  # Lambda Function - Keyless ETL! (Container Image for large deps)
   # ---------------------------------------------------------------------------
   SnowparkLoaderFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "snowpark-widf-loader-${Environment}"
+      FunctionName: !Ref LambdaFunctionName
       Description: Keyless ETL - S3 to Snowflake via WIDF
-      CodeUri: ../
-      Handler: app.lambda_handler
+      PackageType: Image
       Role: !GetAtt LambdaExecutionRole.Arn
+      Architectures:
+        - !Ref LambdaArchitecture
       Environment:
         Variables:
           SNOWFLAKE_ACCOUNT: !Ref SnowflakeAccount
@@ -163,6 +192,12 @@ Resources:
           SNOWFLAKE_USER: !Ref SnowflakeUser
       Tags:
         Project: snowpark-widf-demo
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ../
+      DockerTag: latest
+      DockerBuildArgs:
+        TARGET_ARCH: !Ref LambdaArchitecture
 
   # ---------------------------------------------------------------------------
   # CloudWatch Log Group
@@ -170,7 +205,7 @@ Resources:
   LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/snowpark-widf-loader-${Environment}"
+      LogGroupName: !Sub "/aws/lambda/${LambdaFunctionName}"
       RetentionInDays: 7
 
 # =============================================================================
